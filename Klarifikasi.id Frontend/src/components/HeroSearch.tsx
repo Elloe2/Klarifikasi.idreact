@@ -193,36 +193,42 @@ export default function HeroSearch() {
 
                                     {/* EXPLANATION */}
                                     <div className="space-y-6">
-                                        <div>
-                                            <h4 className="text-white font-bold mb-3 text-base">Penjelasan:</h4>
-                                            <p className="text-gray-300 leading-relaxed text-[15px] whitespace-pre-line">
-                                                {result.gemini_analysis.explanation}
-                                            </p>
+                                        <div className="space-y-4">
+                                            <h4 className="text-white font-bold text-base">Penjelasan:</h4>
+                                            <div
+                                                className="text-gray-300 leading-relaxed text-[15px] whitespace-pre-line"
+                                                dangerouslySetInnerHTML={{
+                                                    __html: result.gemini_analysis.explanation.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+                                                }}
+                                            />
                                         </div>
 
-                                        <div>
-                                            <h4 className="text-white font-bold mb-3 text-base">Analisis Mendalam:</h4>
-                                            <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-5 text-gray-300 leading-relaxed text-[15px] whitespace-pre-line">
-                                                {result.gemini_analysis.analysis.split('\n').map((line: string, i: number) => {
-                                                    const trimmedLine = line.trim();
-                                                    const isHeader = trimmedLine.startsWith('###');
-                                                    const cleanLine = trimmedLine.replace(/^#+\s*/, '');
-                                                    const parts = cleanLine.split(/(\*\*.*?\*\*)/);
+                                        <div className="space-y-4">
+                                            <h4 className="text-white font-bold text-base">Analisis Mendalam:</h4>
+                                            <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-5 text-gray-300 leading-relaxed text-[15px] space-y-1">
+                                                {result.gemini_analysis.analysis.split('\n').map((line, i) => {
+                                                    const trimmed = line.trim();
+                                                    if (!trimmed) return null;
+
+                                                    const isHeader = trimmed.startsWith('###');
+                                                    const cleanText = trimmed.replace(/^#+\s*/, '');
+                                                    const html = cleanText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
 
                                                     return (
-                                                        <div key={`line-${i}`} className={isHeader ? 'text-green-400 font-bold text-lg mt-4 mb-2' : 'min-h-[1.5em]'}>
-                                                            {parts.map((part: string, j: number) => {
-                                                                if (part.startsWith('**') && part.endsWith('**')) {
-                                                                    return <strong key={`part-${j}`} className="text-white font-extrabold">{part.slice(2, -2)}</strong>;
-                                                                }
-                                                                return part;
-                                                            })}
-                                                        </div>
+                                                        <div
+                                                            key={`ana-${i}`}
+                                                            className={isHeader ? 'text-green-400 font-bold text-lg mt-4 mb-2' : 'mb-1'}
+                                                            dangerouslySetInnerHTML={{ __html: html }}
+                                                        />
                                                     );
                                                 })}
                                             </div>
                                         </div>
                                     </div>
+
+
+
+
                                 </div>
                             )}
 

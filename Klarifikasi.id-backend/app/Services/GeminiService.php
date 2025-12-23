@@ -158,7 +158,6 @@ class GeminiService
     {
         $searchData = '';
         $fullContentData = '';
-        $sourceCount = 0;
 
         if (!empty($searchResults)) {
             // Extract URLs for scraping (top 3 most relevant)
@@ -194,7 +193,6 @@ class GeminiService
             // Build snippet data (for all results)
             $items = [];
             foreach ($searchResults as $index => $result) {
-                $sourceCount++;
                 $snippet = $result['snippet'] ?? 'Tidak ada snippet';
                 $snippet = mb_substr($snippet, 0, 400);
 
@@ -210,47 +208,42 @@ class GeminiService
         }
 
         return <<<PROMPT
- Anda adalah AI Fact-Checker Profesional yang ahli. Berikan analisis mendalam terhadap klaim pengguna menggunakan DATA SUMBER yang tersedia dari hasil pencarian Google.
+Anda adalah AI Fact-Checker Profesional. Analisis klaim pengguna menggunakan DATA SUMBER dan KONTEN LENGKAP ARTIKEL yang disediakan.
 
-PENTING: Anda diberikan KONTEN LENGKAP dari beberapa artikel untuk dianalisis secara mendalam. Gunakan informasi ini untuk memberikan jawaban yang akurat dan berbasis data.
-
-=== ATURAN LOGIKA (WAJIB DIIKUTI) ===
-1. SISTEM VERIFIKASI (Verdict):
-   - Anda harus menganalisa seluruh DATA SUMBER dan KONTEN LENGKAP ARTIKEL yang diberikan.
-   - Baca isi artikel dengan teliti untuk menentukan apakah klaim ini didukung atau dibantah.
-   - Tentukan apakah klaim ini memiliki dukungan data yang kuat dari sumber-sumber tersebut.
-   - Penjelasan Anda harus mencakup apakah data yang dikumpulkan benar-benar membahas kejadian yang sama atau hanya kemiripan kata kunci saja.
-
-2. SISTEM CONFIDENCE (Tingkat Kepercayaan):
-   - TINGGI: Jika banyak sumber (lebih dari 3) yang secara spesifik dan konsisten membahas klaim tersebut.
-   - SEDANG: Jika hanya ada 1-2 sumber terpercaya yang membahasnya.
-   - RENDAH: Jika sangat sedikit sumber yang ditemukan, atau sumber yang ada hanya memiliki kemiripan kata kunci tanpa membahas inti klaim yang dimaksud.
+=== ATURAN KONTEN (PENTING) ===
+1. JANGAN gunakan frasa pengantar seperti "Berdasarkan data yang saya baca," atau "Analisis saya menunjukkan." Langsung masuk ke inti informasi.
+2. JANGAN mengulang-ulang informasi yang sama di bagian berbeda.
+3. Tetap objektif, ringkas, dan profesional.
 
 === KLAIM PENGGUNA ===
 "{$claim}"{$searchData}{$fullContentData}
 
-=== ATURAN FORMAT JAWABAN (WAJIB) ===
-1. FIELD "explanation" (NARASI MENDALAM):
-   DILARANG menggunakan bullet points atau baris baru. Tuliskan dalam satu atau dua paragraf mengalir yang mencakup:
-   - [APA]: Jelaskan klaim ini secara mendetail berdasarkan isi artikel yang Anda baca. Apa inti masalahnya, dan siapa saja yang terlibat.
-   - [KENAPA]: Jelaskan secara mendalam latar belakang berdasarkan artikel yang tersedia - kenapa klaim ini muncul, konteks apa yang melatarbelakanginya.
-   - [KESIMPULAN]: Berikan analisa berbasis data dari artikel yang dibaca. Sebutkan secara spesifik apa yang dikatakan sumber-sumber tersebut tentang klaim ini.
+=== ATURAN FORMAT OUTPUT (JSON ONLY) ===
+Wajib mengembalikan JSON dengan field berikut:
 
-2. FIELD "analysis" (DETAIL & TRANSKRIP):
-   A. ALASAN VERIFIKASI: Jelaskan berdasarkan isi artikel yang dibaca - apakah klaim didukung atau dibantah.
-   B. ALASAN CONFIDENCE: Jelaskan kenapa Anda memberikan confidence tersebut berdasarkan kualitas dan konsistensi sumber.
-   C. ANALISIS SUMBER: Untuk setiap sumber, jelaskan apa yang dibahas oleh artikel tersebut terkait klaim.
+1. "verdict": "Tervalidasi" | "Terbantah" | "Perlu Verifikasi"
+2. "confidence": "Tinggi" | "Sedang" | "Rendah"
+3. "explanation": Narasi ringkas dan padat. Gunakan format (pake line break \n antar bagian):
+   **Analisa Klaim**: (1-2 kalimat inti masalah)
+   **Konteks**: (Penjelasan kenapa ini viral/muncul)
+   **Hasil Verifikasi**: (Kesimpulan akhir berbasis data sumber)
+4. "analysis": Detail mendalam. Berikan poin-poin tentang:
+   - Alasan penetapan status (Verdict & Confidence)
+   - Fakta-fakta kunci yang ditemukan di artikel lengkap
+   - Perbandingan antar sumber (apakah konsisten atau bertolak belakang)
+5. "sources_used": List domain utama yang memberikan informasi paling valid (max 5).
 
-=== OUTPUT HARUS JSON (TANPA MARKDOWN) ===
+Format JSON:
 {
-  "verdict": "Tervalidasi" | "Terbantah" | "Perlu Verifikasi",
-  "explanation": "Tuliskan narasi mendalam sesuai instruksi di atas",
-  "analysis": "Penjelasan detail alasan verdict, confidence, dan daftar sumber",
-  "confidence": "Tinggi" | "Sedang" | "Rendah",
-  "sources_used": ["brand1.com", "brand2.go.id"]
+  "verdict": "...",
+  "explanation": "...",
+  "analysis": "...",
+  "confidence": "...",
+  "sources_used": ["..."]
 }
 PROMPT;
     }
+
 
     /**
      * Parse response dari Gemini AI
@@ -541,42 +534,36 @@ PROMPT;
         $confidence = ($relevantCount >= 4) ? 'Tinggi' : (($relevantCount >= 2) ? 'Sedang' : 'Rendah');
         $verdict = $isHoax ? 'Terbantah' : (($relevantCount >= 3 && $isOfficial) ? 'Tervalidasi' : 'Perlu Verifikasi');
 
-        // NARASI DINAMIS dengan konten dari scraping
-        $apaText = "Klaim ini merujuk pada informasi mengenai \"{$claim}\". Berdasarkan analisis terhadap konten artikel yang berhasil diakses, isu ini membahas tentang: {$realContext}";
+        // EXPLANATION TERTATA
+        $explanation = "**Analisa Klaim**: Isu mengenai \"{$claim}\" ditemukan di berbagai sumber informasi.\n\n";
+        $explanation .= "**Konteks**: Narasi ini terpantau menyebar {$platformText} dan menarik perhatian publik secara luas.\n\n";
 
-        $kenapaText = "Informasi ini terpantau muncul dan menyebar {$platformText}. ";
-        if (!empty($scrapedArticles)) {
-            $kenapaText .= "Berdasarkan pembacaan isi artikel, konten ini kemungkinan viral karena menyangkut figur publik atau isu kontroversial yang mengundang perhatian luas.";
-        } else {
-            $kenapaText .= "Tren kemunculannya dipicu oleh narasi yang kemudian direspon oleh berbagai portal informasi online.";
-        }
-
-        $kesimpulanText = "Sistem berhasil mengakses " . count($scrapedArticles) . " artikel lengkap dan " . count($searchResults) . " rujukan pencarian. ";
         if ($isHoax) {
-            $kesimpulanText .= "Dari analisis konten, ditemukan indikasi kuat berupa bantahan atau pelabelan sebagai informasi HOAKS dari sumber kredibel.";
+            $explanation .= "**Hasil Verifikasi**: Ditemukan indikasi kuat berupa bantahan atau pelabelan sebagai informasi **HOAKS/SALAH** dari sumber kredibel. Detil artikel menunjukkan ketidaksesuaian klaim dengan fakta di lapangan.";
         } else {
-            $kesimpulanText .= "Belum ditemukan konfirmasi atau bantahan yang definitif, sehingga status sementara adalah {$verdict}.";
+            $explanation .= "**Hasil Verifikasi**: Saat ini belum ditemukan klarifikasi resmi yang mutlak, namun data menunjukkan relevansi dengan: {$realContext}";
         }
 
-        $explanation = "[APA]: {$apaText} [KENAPA]: {$kenapaText} [KESIMPULAN]: {$kesimpulanText}";
 
-        $analysis = "### Ringkasan Analisa Data:\n\n";
-        $analysis .= "**A. ALASAN VERIFIKASI**: Status **{$verdict}** diberikan berdasarkan analisis terhadap **" . count($scrapedArticles) . " artikel lengkap** dan **{$relevantCount} sumber relevan** dari pencarian.";
+        // ANALYSIS TERTATA
+        $analysis = "### Ringkasan Verifikasi Data\n\n";
+        $analysis .= "Status **{$verdict}** ditetapkan berdasarkan penelusuran terhadap " . count($scrapedArticles) . " artikel mendalam dan {$relevantCount} rujukan data terkait. ";
+        $analysis .= "Tingkat kepercayaan **{$confidence}** diberikan karena " . ($relevantCount >= 4 ? "adanya konsistensi informasi yang kuat dari berbagai sumber kredibel." : "sumber informasi masih bersifat terbatas atau dalam tahap verifikasi lanjut.");
 
-        $analysis .= "\n\n**B. ALASAN CONFIDENCE**: Tingkat **{$confidence}** ditentukan karena " . ($relevantCount >= 4 ? "konsistensi informasi antar sumber sangat tinggi." : "informasi masih tersebar dan perlu pendalaman lebih lanjut.");
-
-        // Tampilkan cuplikan dari artikel yang di-scrape
         if (!empty($scrapedArticles)) {
-            $analysis .= "\n\n**C. ISI ARTIKEL YANG DIANALISIS**:\n";
-            foreach ($scrapedArticles as $index => $article) {
-                $contentPreview = mb_substr(strip_tags($article['content']), 0, 200) . "...";
-                $analysis .= "- **" . parse_url($article['url'], PHP_URL_HOST) . "**: " . $contentPreview . "\n";
+            $analysis .= "\n\n### Poin Kunci dari Artikel Terkait\n";
+            foreach ($scrapedArticles as $article) {
+                $preview = mb_substr(strip_tags($article['content']), 0, 180) . "...";
+                $analysis .= "- **" . parse_url($article['url'], PHP_URL_HOST) . "**: {$preview}\n";
             }
         }
 
-        $analysis .= "\n\n**D. SUMBER PENCARIAN TERKAIT**:\n";
-        foreach (array_slice($sourcesMentioned, 0, 5) as $src) {
-            $analysis .= "- {$src}\n";
+        if (!empty($sourcesMentioned)) {
+            $uniqueSources = array_slice(array_unique($sourcesMentioned), 0, 3);
+            $analysis .= "\n### Referensi Tambahan\n";
+            foreach ($uniqueSources as $src) {
+                $analysis .= "- {$src}\n";
+            }
         }
 
         return [
@@ -589,4 +576,5 @@ PROMPT;
             'claim' => (string) $claim,
         ];
     }
+
 }
