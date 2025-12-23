@@ -1,0 +1,32 @@
+# Frontend
+Klarifikasi.id Frontend/node_modules/
+Klarifikasi.id Frontend/.next/
+Klarifikasi.id Frontend/out/
+Klarifikasi.id Frontend/build/
+Klarifikasi.id Frontend/.env
+Klarifikasi.id Frontend/.env.local
+Klarifikasi.id Frontend/.env.development.local
+Klarifikasi.id Frontend/.env.test.local
+Klarifikasi.id Frontend/.env.production.local
+
+# Backend
+Klarifikasi.id-backend/vendor/
+Klarifikasi.id-backend/.env
+Klarifikasi.id-backend/.env.backup
+Klarifikasi.id-backend/.env.production
+Klarifikasi.id-backend/storage/*.key
+Klarifikasi.id-backend/storage/framework/cache/data/*
+Klarifikasi.id-backend/storage/framework/sessions/*
+Klarifikasi.id-backend/storage/framework/testing/*
+Klarifikasi.id-backend/storage/framework/views/*
+Klarifikasi.id-backend/storage/logs/*
+Klarifikasi.id-backend/public/storage
+Klarifikasi.id-backend/node_modules/
+Klarifikasi.id-backend/npm-debug.log
+Klarifikasi.id-backend/yarn-error.log
+Klarifikasi.id-backend/.phpunit.result.cache
+
+# General
+.vscode/
+.DS_Store
+Thumbs.db

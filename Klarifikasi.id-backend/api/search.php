@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * Laravel Serverless Function untuk Vercel - Search endpoints
+ * Menangani pencarian fact-checking dengan Google Custom Search
+ */
+
+// Load initialization
+require_once __DIR__ . '/_init.php';
+
+// Load Laravel components
+require_once __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/serverless.php';
+$app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\SearchController;
+use App\Services\GoogleSearchService;
+use App\Services\GeminiService;
+use Exception;
+
+// Get request path dan method
+$method = $_SERVER['REQUEST_METHOD'];
+$path = $_SERVER['REQUEST_URI'] ?? '/';
+
+// Remove query string dari path
+$path = explode('?', $path)[0];
+
+// Initialize controller with dependencies
+$searchService = new GoogleSearchService();
+$geminiService = new GeminiService();
+$controller = new SearchController($searchService, $geminiService);
+
+// CORS headers
+$allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://www.klarifikasi.rj22d.my.id',
+    'https://klarifikasi.netlify.app',
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+$allowOrigin = ($origin && in_array($origin, $allowedOrigins, true)) ? $origin : '*';
+
+header('Access-Control-Allow-Origin: ' . $allowOrigin);
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Max-Age: 600');
+header('Vary: Origin');
+
+try {
+    switch($method) {
+        case 'OPTIONS':
+            http_response_code(204);
+            exit;
+        
+        case 'GET':
+            if (strpos($path, '/api/search') !== false) {
+                $controller->search(Request::createFromGlobals());
+            } else {
+                header('Content-Type: application/json');
+                http_response_code(404);
+                echo json_encode([
+                    'error' => 'Search endpoint not found',
+                    'path' => $path,
+                    'available_endpoints' => [
+                        'GET /api/search',
+                        'POST /api/search',
+                        'OPTIONS /api/search'
+                    ]
+                ]);
+            }
+            break;
+
+        case 'POST':
+            if (strpos($path, '/api/search') !== false) {
+                $controller->search(Request::createFromGlobals());
+            } else {
+                header('Content-Type: application/json');
+                http_response_code(404);
+                echo json_encode([
+                    'error' => 'Search endpoint not found',
+                    'path' => $path,
+                    'available_endpoints' => [
+                        'GET /api/search',
+                        'POST /api/search',
+                        'OPTIONS /api/search'
+                    ]
+                ]);
+            }
+            break;
+
+        default:
+            header('Content-Type: application/json');
+            http_response_code(405);
+            echo json_encode([
+                'error' => 'Method not allowed',
+                'method' => $method,
+                'allowed_methods' => ['GET', 'POST', 'OPTIONS']
+            ]);
+    }
+} catch (Exception $e) {
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Internal server error',
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
+    ]);
+}
