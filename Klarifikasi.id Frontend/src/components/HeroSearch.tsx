@@ -206,7 +206,7 @@ export default function HeroSearch() {
                                         <div className="space-y-4">
                                             <h4 className="text-white font-bold text-base">Analisis Mendalam:</h4>
                                             <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-5 text-gray-300 leading-relaxed text-[15px] space-y-1">
-                                                {result.gemini_analysis.analysis.split('\n').map((line, i) => {
+                                                {result.gemini_analysis.analysis.split('\n').map((line: string, i: number) => {
                                                     const trimmed = line.trim();
                                                     if (!trimmed) return null;
 
